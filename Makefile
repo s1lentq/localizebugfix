@@ -1,70 +1,49 @@
-#(C)2004-2005 AMX Mod X Development Team
-# Makefile written by David "BAILOPAN" Anderson
-
 HLSDK = sdk/hlsdk
 METAMOD = sdk/metamod
 M_INCLUDE = include
 
-OPT_FLAGS = -O2 -funroll-loops -s -pipe -fomit-frame-pointer -fno-strict-aliasing
-DEBUG_FLAGS = -g -ggdb3
-CPP = g++
 NAME = localizebugfix
-
-BIN_SUFFIX_32 = mm_i386.so
-BIN_SUFFIX_64 = mm_amd64.so
+COMPILER = /opt/intel/bin/icpc
 
 OBJECTS = main.cpp memory.cpp meta_api.cpp
 
-LINK = 
+LINK = -lm -ldl -static-intel -static-libgcc -no-intel-extensions
+
+OPT_FLAGS = -O3 -msse3 -ipo -no-prec-div -fp-model fast=2 -funroll-loops -fomit-frame-pointer -fno-stack-protector
 
 INCLUDE = -I. -I$(M_INCLUDE)/ -I$(HLSDK)/common -I$(HLSDK)/dlls -I$(HLSDK)/engine -I$(HLSDK)/pm_shared -I$(METAMOD)
 
-GCC_VERSION := $(shell $(CPP) -dumpversion >&1 | cut -b1)
+BIN_DIR = Release
+CFLAGS = $(OPT_FLAGS)
 
-ifeq "$(GCC_VERSION)" "4"
-	OPT_FLAGS += -fvisibility=hidden -fvisibility-inlines-hidden
-endif
+CFLAGS += -g0 -fvisibility=hidden -fvisibility-inlines-hidden -DNDEBUG -Dlinux -std=c++0x -shared -wd147,274 -fasm-blocks
 
-ifeq "$(DEBUG)" "true"
-	BIN_DIR = Debug
-	CFLAGS = $(DEBUG_FLAGS)
-else
-	BIN_DIR = Release
-	CFLAGS = $(OPT_FLAGS)
-endif
+OBJ_LINUX := $(OBJECTS:%.c=$(BIN_DIR)/%.o)
 
-CFLAGS += -DNDEBUG -Wall -Wno-char-subscripts -Wno-unknown-pragmas -Wno-write-strings -Wno-deprecated -Wno-non-virtual-dtor -fno-exceptions -DHAVE_STDINT_H -fno-rtti -static-libgcc -m32
-
-ifeq "$(AMD64)" "true"
-	BINARY = $(NAME)_$(BIN_SUFFIX_64)
-	CFLAGS += -DPAWN_CELL_SIZE=64 -DHAVE_I64 -m64 
-else
-	BINARY = $(NAME)_$(BIN_SUFFIX_32)
-	CFLAGS += -DPAWN_CELL_SIZE=32 -DJIT -DASM32
-	OPT_FLAGS += -march=i586
-endif
-
-OBJ_LINUX := $(OBJECTS:%.cpp=$(BIN_DIR)/%.o)
-
-$(BIN_DIR)/%.o: %.cpp
-	$(CPP) $(INCLUDE) $(CFLAGS) -o $@ -c $<
+$(BIN_DIR)/%.o: %.c
+	$(COMPILER) $(INCLUDE) $(CFLAGS) -o $@ -c $<
 
 all:
 	mkdir -p $(BIN_DIR)
-	$(MAKE) $(NAME)
+	mkdir -p $(BIN_DIR)/sdk
 
-amd64:
-	$(MAKE) all AMD64=true
+	$(MAKE) $(NAME) && strip -x $(BIN_DIR)/$(NAME)_mm_i386.so
 
 $(NAME): $(OBJ_LINUX)
-	$(CPP) $(INCLUDE) $(CFLAGS) $(OBJ_LINUX) $(LINK) -shared -ldl -lm -o$(BIN_DIR)/$(BINARY)
+	$(COMPILER) $(INCLUDE) $(CFLAGS) $(OBJ_LINUX) $(LINK) -o$(BIN_DIR)/$(NAME)_mm_i386.so
+
+check:
+	cppcheck $(INCLUDE) --quiet --max-configs=100 -D__linux__ -DNDEBUG -DHAVE_STDINT_H .
 
 debug:	
-	$(MAKE) all DEBUG=true
+	$(MAKE) all DEBUG=false
 
 default: all
 
 clean:
-	rm -rf $(BIN_DIR)/*.o
-	rm -rf $(BIN_DIR)/$(NAME)_$(BIN_SUFFIX_32)
-	rm -rf $(BIN_DIR)/$(NAME)_$(BIN_SUFFIX_64)
+	rm -rf Release/sdk/*.o
+	rm -rf Release/*.o
+	rm -rf Release/$(NAME)_mm_i386.so
+	rm -rf Debug/sdk/*.o
+	rm -rf Debug/*.o
+	rm -rf Debug/$(NAME)_mm_i386.so

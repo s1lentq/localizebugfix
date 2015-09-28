@@ -35,19 +35,17 @@
 #include "meta_api.h"
 
 #undef C_DLLEXPORT
-
 #ifdef _WIN32
 	#define C_DLLEXPORT extern "C" __declspec(dllexport)
 #else
-	#include <sys/mman.h>
 	#define C_DLLEXPORT extern "C" __attribute__((visibility("default")))
-#endif
+#endif // _WIN32
 
 plugin_info_t Plugin_info = {
 
 	META_INTERFACE_VERSION,
 	"LocalizeBug Fix",
-	"2.3",
+	"2.4",
 	"20/09/14",
 	"s1lent",
 	"http://www.aghl.ru/",

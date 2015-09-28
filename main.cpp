@@ -35,12 +35,14 @@
 
 void Cmd_TokenizeString_Handler(char *buf)
 {
-	if(!strncmp(buf,"say ",4) || !strncmp(buf,"say_team ",9))
+	if (!strncmp(buf, "say ", 4) || !strncmp(buf, "say_team ", 9))
 	{
-		localize_string(buf,true);
+		localize_string(buf, true);
 	}
+
 	pfnCmd_TokenizeString(buf);
 }
+
 void OnMetaAttach()
 {
 	lib_t lib;
@@ -51,19 +53,20 @@ void OnMetaAttach()
 #ifdef _WIN32
 	char p1[] = "\x55\x8B\x2A\xA1\x2A\x2A\x2A\x2A\x56\x33\x2A\x85\x2A\x7E\x2A\x8B\x2A\x2A\x2A\x2A\x2A\x2A\x50";
 	char p2[] = "\x56\xE8\x2A\x2A\x2A\x2A\xA1\x2A\x2A\x2A\x2A\x50\xFF\x2A\x2A\x2A\x2A\x2A\x83\x2A\x2A\x5E\xC3";
-#endif
+#endif // _WIN32
 
-	lib_load_info((void *)gpGlobals,&lib);
+	lib_load_info((void *)gpGlobals, &lib);
 
 #ifdef _WIN32
 	// * Cmd_TokenizeString | addr - 049A3FC0
-	addr = lib_find_pattern(&lib,p1,sizeof(p1) - 1);//23
+	addr = lib_find_pattern(&lib, p1, sizeof(p1) - 1);//23
 #else
-	addr = lib_find_symbol(&lib,"Cmd_TokenizeString");
-#endif
-	if(!addr)
+	addr = lib_find_symbol(&lib, "Cmd_TokenizeString");
+#endif // _WIN32
+
+	if (!addr)
 	{
-		LOG_ERROR(PLID,"can't find \"Cmd_TokenizeString\"");
+		LOG_ERROR(PLID, "can't find \"Cmd_TokenizeString\"");
 		return;
 	}
 
@@ -71,11 +74,11 @@ void OnMetaAttach()
 
 #ifdef _WIN32
 	// * SV_ParseStringCommand | addr - 01DAB0AF
-	addr = lib_find_pattern(&lib,p2,sizeof(p2) - 1);
+	addr = lib_find_pattern(&lib, p2, sizeof(p2) - 1);
 
-	if(!addr)
+	if (!addr)
 	{
-		LOG_ERROR(PLID,"can't find \"Cmd_TokenizeString\" inside function \"SV_ParseStringCommand\"");
+		LOG_ERROR(PLID, "can't find \"Cmd_TokenizeString\" inside function \"SV_ParseStringCommand\"");
 		return;
 	}
 	// 01DAB0D8 56                       push    esi
@@ -84,44 +87,45 @@ void OnMetaAttach()
 	addr += 2;// 01DAB0D8 + 1
 #else
 
-	addr = lib_find_symbol(&lib,"SV_ParseStringCommand");
+	addr = lib_find_symbol(&lib, "SV_ParseStringCommand");
 
-	if(!addr)
+	if (!addr)
 	{
-		LOG_ERROR(PLID,"can't find \"SV_ParseStringCommand\"");
+		LOG_ERROR(PLID, "can't find \"SV_ParseStringCommand\"");
 		return;
 	}
 
 	// 0009B1B0 53                       push    ebx
 	// 0009B1B1 E8 AA A5 FA FF                      call    Cmd_TokenizeString
 
-	addr = mem_find_ref(addr,200,'\xE8',(dword)pfnCmd_TokenizeString,1);
+	addr = mem_find_ref(addr, 200, '\xE8', (dword)pfnCmd_TokenizeString, 1);
 
-	if(!addr)
+	if (!addr)
 	{
-		LOG_ERROR(PLID,"can't find \"Cmd_TokenizeString\" inside function \"SV_ParseStringCommand\"");
+		LOG_ERROR(PLID, "can't find \"Cmd_TokenizeString\" inside function \"SV_ParseStringCommand\"");
 		return;
 	}
 
 	addr += 1;
-#endif
+#endif // _WIN32
+
 	*(dword *)patch = (dword)Cmd_TokenizeString_Handler - (dword)addr - 4;
 
-	if(!mem_change_protection(addr,patch,sizeof(patch)))
+	if (!mem_change_protection(addr, patch, sizeof(patch)))
 	{
-		LOG_ERROR(PLID,"patch failed.");
+		LOG_ERROR(PLID, "patch failed.");
 		return;
 	}
 
 #ifdef _WIN32
-	addr = lib_find_pattern_fstr(&lib,"#      name userid uniqueid frag time ping loss adr\n",-12,"\x68\x2A\x2A\x2A\x2A\x53\x56",7);
+	addr = lib_find_pattern_fstr(&lib, "#      name userid uniqueid frag time ping loss adr\n", -12, "\x68\x2A\x2A\x2A\x2A\x53\x56", 7);
 #else
-	addr = lib_find_symbol(&lib,"svs");
-#endif
+	addr = lib_find_symbol(&lib, "svs");
+#endif // _WIN32
 
-	if(!addr)
+	if (!addr)
 	{
-		LOG_ERROR(PLID,"can't find \"svs\"");
+		LOG_ERROR(PLID, "can't find \"svs\"");
 		return;
 	}
 
@@ -130,13 +134,14 @@ void OnMetaAttach()
 	global_svs = (struct server_static_s *)(*(dword **)addr - 2);
 #else
 	global_svs = (struct server_static_s *)addr;
-#endif
+#endif // _WIN32
 
 	localize_push();
-};
-void ClientUserInfoChanged(edict_t *pEdict,char *infobuffer)
+}
+
+void ClientUserInfoChanged(edict_t *pEdict, char *infobuffer)
 {
-	if(!global_svs)
+	if (!global_svs)
 		RETURN_META(MRES_IGNORED);
 
 	char c;
@@ -147,55 +152,60 @@ void ClientUserInfoChanged(edict_t *pEdict,char *infobuffer)
 	int j = 0;
 
 	s = getClientName(pEdict);
-	buf = INFOKEY_VALUE(infobuffer,"name");
+	buf = INFOKEY_VALUE(infobuffer, "name");
 
-	if(*s != '\0' && !strcmp(s,buf))
+	if (*s != '\0' && !strcmp(s, buf))
+	{
 		RETURN_META(MRES_IGNORED);
+	}
 
-	if(*s == '#')
+	if (*s == '#')
 		*s = '*';
 
-	for(;*buf != '\0'; buf++, i++)
+	for (;*buf != '\0'; buf++, i++)
 	{
-		if(*buf != '+')
+		if (*buf != '+')
 			continue;
 
 		c = *(buf + 1);
 
-		if(!isspace(c) && (isdigit(c) || isalpha(c)))
+		if (!isspace(c) && (isdigit(c) || isalpha(c)))
 		{
 			*buf = '*';
 			j++;
 		}
 	};
 
-	if(localize_string(buf -= i,false) || j)
+	if (localize_string(buf -= i, false) || j)
 	{
-		SET_CLIENT_KEYVALUE(ENTINDEX(pEdict),infobuffer,"name",buf);
+		SET_CLIENT_KEYVALUE(ENTINDEX(pEdict), infobuffer, "name", buf);
 	}
+
 	RETURN_META(MRES_IGNORED);
-};
+}
+
 #ifdef _WIN32
-static char *strcasestr(const char *phaystack,const char *pneedle)
+static char *strcasestr(const char *phaystack, const char *pneedle)
 {
 	const char *a,*b;
-	for(;*phaystack; *phaystack++)
+	for (;*phaystack; *phaystack++)
 	{
 		a = phaystack;
 		b = pneedle;
 
-		while((*a++|32) == (*b++|32))
+		while ((*a++|32) == (*b++|32))
 		{
-			if(!*b)
+			if (!*b)
 				return (char *)phaystack;
 		}
 	}
 	return NULL;
-};
-#endif
-static int localize_string(char *buf,bool apersand)
+}
+#endif // _WIN32
+
+static int localize_string(char *buf, bool apersand)
 {
-	if(*buf == '\0')
+	if (*buf == '\0')
 	{
 		return 0;
 	}
@@ -204,39 +214,44 @@ static int localize_string(char *buf,bool apersand)
 	char *j,*a;
 	char *c = buf;
 
-	if(apersand)
+	if (apersand)
 	{
 		do {
-			if(*c == '%')
+			if (*c == '%')
 				*c = ' ';
 
 			t++;
 
-		} while(*c++);
+		} while (*c++);
 
 		c -= t;
 	}
 
 	t = 0;
 
-	while(1)
+	while (true)
 	{
-		if(!c || !(j = strstr(c,"#")))
+		if (!c || !(j = strstr(c, "#")))
 			break;
 
 		c = j + 1;
 
-		if(!isdigit(*c) && isalpha(*c) && !isspace(*c))
+		if (!isdigit(*c) && isalpha(*c) && !isspace(*c))
 		{
-			CVector<const char *> *p = &(localize);
-			for(CVector<const char *>::iterator i = p->begin(); i != p->end(); i++)
+			for (CVector<const char *>::iterator i = localize.begin(); i != localize.end(); i++)
 			{
-				while(1)
+				while (true)
 				{
-					if(!(a = strcasestr(buf,(*i)))
-						&& !(a = strcasestr(buf,"#CZero_"))
-						&& !(a = strcasestr(buf,"#Cstrike_"))
-						&& !(a = strcasestr(buf,"#Career_")))
+					if (!(a = strcasestr(buf, (*i)))
+						&& !(a = strcasestr(buf, "#CZero_"))
+						&& !(a = strcasestr(buf, "#Cstrike_"))
+						&& !(a = strcasestr(buf, "#Career_"))
+						&& !(a = strcasestr(buf, "#GameUI_"))
+						&& !(a = strcasestr(buf, "#Hint_"))
+						&& !(a = strcasestr(buf, "#Spec_"))
+						&& !(a = strcasestr(buf, "#Game_"))
+						&& !(a = strcasestr(buf, "#Title_"))
+						&& !(a = strcasestr(buf, "#Valve_")))
 					{
 						break;
 					}
@@ -247,5 +262,6 @@ static int localize_string(char *buf,bool apersand)
 			}
 		}
 	}
+
 	return (t > 0 && *buf != '\0');
-};
+}
